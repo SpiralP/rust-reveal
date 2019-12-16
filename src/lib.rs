@@ -1,4 +1,7 @@
-use std::{io::Error, path::PathBuf, ptr};
+mod error;
+
+use crate::error::*;
+use std::{io, path::PathBuf, ptr};
 use widestring::WideCString;
 use winapi::{
   shared::{
@@ -26,9 +29,11 @@ extern "C" {
   ) -> HRESULT;
 }
 
-fn path_to_c_str(path: PathBuf) -> WideCString {
-  let absolute_path = path.canonicalize().unwrap();
-  let absolute_path = absolute_path.to_str().unwrap();
+fn path_to_c_str(path: PathBuf) -> Result<WideCString> {
+  let absolute_path = path.canonicalize()?;
+  let absolute_path = absolute_path
+    .to_str()
+    .chain_err(|| "absolute_path.to_str")?;
   let absolute_path = if absolute_path.starts_with("\\\\?\\") {
     &absolute_path[4..]
   } else {
@@ -37,21 +42,21 @@ fn path_to_c_str(path: PathBuf) -> WideCString {
 
   let absolute_path: Vec<u16> = absolute_path.encode_utf16().collect();
 
-  WideCString::new(absolute_path).unwrap()
+  Ok(WideCString::new(absolute_path).chain_err(|| "WideCString::new(absolute_path)")?)
 }
 
-fn get_item_id_list(path: PathBuf) -> Result<PIDLIST_ABSOLUTE, Error> {
-  let c_str = path_to_c_str(path);
+fn get_item_id_list(path: PathBuf) -> Result<PIDLIST_ABSOLUTE> {
+  let c_str = path_to_c_str(path)?;
 
   let item_id_list = unsafe { ILCreateFromPathW(c_str.as_ptr()) };
   if item_id_list.is_null() {
-    Err(Error::last_os_error())
+    Err(io::Error::last_os_error().into())
   } else {
     Ok(item_id_list)
   }
 }
 
-pub fn that(path: PathBuf) -> Result<(), Error> {
+pub fn that(path: PathBuf) -> Result<()> {
   unsafe { CoInitialize(ptr::null_mut()) };
 
   let item_id_list = get_item_id_list(path)?;
@@ -59,17 +64,17 @@ pub fn that(path: PathBuf) -> Result<(), Error> {
   unsafe { ILFree(item_id_list) };
 
   if ret != S_OK {
-    Err(Error::from_raw_os_error(ret))
+    Err(io::Error::from_raw_os_error(ret).into())
   } else {
     Ok(())
   }
 }
 
-pub fn those(path: PathBuf, mut items: Vec<PathBuf>) -> Result<(), Error> {
+pub fn those(path: PathBuf, mut items: Vec<PathBuf>) -> Result<()> {
   unsafe { CoInitialize(ptr::null_mut()) };
 
   let item_id_list = get_item_id_list(path)?;
-  let item_id_list_items: Result<Vec<_>, _> = items.drain(..).map(get_item_id_list).collect();
+  let item_id_list_items: Result<Vec<_>> = items.drain(..).map(get_item_id_list).collect();
   let item_id_list_items = item_id_list_items?;
 
   let ret = unsafe {
@@ -87,7 +92,7 @@ pub fn those(path: PathBuf, mut items: Vec<PathBuf>) -> Result<(), Error> {
   unsafe { ILFree(item_id_list) };
 
   if ret != S_OK {
-    Err(Error::from_raw_os_error(ret))
+    Err(io::Error::from_raw_os_error(ret).into())
   } else {
     Ok(())
   }

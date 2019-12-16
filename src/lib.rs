@@ -1,7 +1,7 @@
 mod error;
 
 use crate::error::*;
-use std::{io, path::PathBuf, ptr};
+use std::{io, path::Path, ptr};
 use widestring::WideCString;
 use winapi::{
   shared::{
@@ -29,7 +29,9 @@ extern "C" {
   ) -> HRESULT;
 }
 
-fn path_to_c_str(path: PathBuf) -> Result<WideCString> {
+fn path_to_c_str<P: AsRef<Path>>(path: P) -> Result<WideCString> {
+  let path = path.as_ref();
+
   let absolute_path = path.canonicalize()?;
   let absolute_path = absolute_path
     .to_str()
@@ -45,7 +47,7 @@ fn path_to_c_str(path: PathBuf) -> Result<WideCString> {
   Ok(WideCString::new(absolute_path).chain_err(|| "WideCString::new(absolute_path)")?)
 }
 
-fn get_item_id_list(path: PathBuf) -> Result<PIDLIST_ABSOLUTE> {
+fn get_item_id_list<P: AsRef<Path>>(path: P) -> Result<PIDLIST_ABSOLUTE> {
   let c_str = path_to_c_str(path)?;
 
   let item_id_list = unsafe { ILCreateFromPathW(c_str.as_ptr()) };
@@ -56,7 +58,7 @@ fn get_item_id_list(path: PathBuf) -> Result<PIDLIST_ABSOLUTE> {
   }
 }
 
-pub fn that(path: PathBuf) -> Result<()> {
+pub fn that<P: AsRef<Path>>(path: P) -> Result<()> {
   unsafe { CoInitialize(ptr::null_mut()) };
 
   let item_id_list = get_item_id_list(path)?;
@@ -70,7 +72,7 @@ pub fn that(path: PathBuf) -> Result<()> {
   }
 }
 
-pub fn those(path: PathBuf, mut items: Vec<PathBuf>) -> Result<()> {
+pub fn those<P: AsRef<Path>>(path: P, mut items: Vec<P>) -> Result<()> {
   unsafe { CoInitialize(ptr::null_mut()) };
 
   let item_id_list = get_item_id_list(path)?;
@@ -100,14 +102,10 @@ pub fn those(path: PathBuf, mut items: Vec<PathBuf>) -> Result<()> {
 
 #[test]
 fn test_that() {
-  that(".".parse().unwrap()).unwrap();
+  that(".").unwrap();
 }
 
 #[test]
 fn test_those() {
-  those(
-    ".".parse().unwrap(),
-    vec!["Cargo.toml".parse().unwrap(), "src".parse().unwrap()],
-  )
-  .unwrap();
+  those(".", vec!["Cargo.toml", "src"]).unwrap();
 }

@@ -1,5 +1,6 @@
 use crate::{error::*, helpers::path_to_c_str};
 use std::{io, path::Path, ptr};
+use widestring::WideCString;
 use winapi::{
   shared::{
     minwindef::{DWORD, UINT},
@@ -11,6 +12,24 @@ use winapi::{
     shtypes::{PCIDLIST_ABSOLUTE, PCUITEMID_CHILD_ARRAY, PIDLIST_ABSOLUTE, PIDLIST_RELATIVE},
   },
 };
+
+fn path_to_c_str<P: AsRef<Path>>(path: P) -> Result<WideCString> {
+  let path = path.as_ref();
+
+  let absolute_path = path.canonicalize()?;
+  let absolute_path = absolute_path
+    .to_str()
+    .chain_err(|| "absolute_path.to_str")?;
+  let absolute_path = if absolute_path.starts_with("\\\\?\\") {
+    &absolute_path[4..]
+  } else {
+    absolute_path
+  };
+
+  let absolute_path: Vec<u16> = absolute_path.encode_utf16().collect();
+
+  Ok(WideCString::new(absolute_path).chain_err(|| "WideCString::new(absolute_path)")?)
+}
 
 #[link(name = "Shell32")]
 extern "C" {

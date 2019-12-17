@@ -1,8 +1,14 @@
 mod error;
-mod helpers;
-mod windows;
 
-pub use crate::windows::{that, those};
+cfg_if::cfg_if! {
+  if #[cfg(windows)] {
+    mod windows;
+    pub use crate::windows::{that, those};
+  } else if #[cfg(unix)] {
+    mod unix;
+    pub use crate::unix::{that, those};
+  }
+}
 
 #[test]
 fn test_that() {

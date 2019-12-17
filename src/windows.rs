@@ -1,4 +1,4 @@
-use crate::{error::*, helpers::path_to_c_str};
+use crate::{error::*};
 use std::{io, path::Path, ptr};
 use widestring::WideCString;
 use winapi::{

@@ -1,4 +1,4 @@
-use crate::{error::*};
+use crate::error::*;
 use std::{io, path::Path, ptr};
 use widestring::WideCString;
 use winapi::{
@@ -63,10 +63,10 @@ pub fn that<P: AsRef<Path>>(path: P) -> Result<()> {
   let ret = unsafe { SHOpenFolderAndSelectItems(item_id_list, 0, ptr::null_mut(), 0) };
   unsafe { ILFree(item_id_list) };
 
-  if ret != S_OK {
-    Err(io::Error::from_raw_os_error(ret).into())
-  } else {
+  if ret == S_OK {
     Ok(())
+  } else {
+    Err(io::Error::from_raw_os_error(ret).into())
   }
 }
 
@@ -92,9 +92,9 @@ pub fn those<P: AsRef<Path>>(path: P, mut items: Vec<P>) -> Result<()> {
 
   unsafe { ILFree(item_id_list) };
 
-  if ret != S_OK {
-    Err(io::Error::from_raw_os_error(ret).into())
-  } else {
+  if ret == S_OK {
     Ok(())
+  } else {
+    Err(io::Error::from_raw_os_error(ret).into())
   }
 }
